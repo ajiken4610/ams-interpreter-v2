@@ -68,6 +68,7 @@ module.exports = () => {
       name: "AjiMarkupScript",
       description: "This is a demo of AMS.",
       crossorigin: 'use-credentials',
+      ios: true,
       icons: [{
         src: path.resolve("src/image/logo.png"),
         sizes: [96, 128, 192, 256, 384, 512],
