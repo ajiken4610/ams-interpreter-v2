@@ -3,6 +3,7 @@
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const WorkboxWebpackPlugin = require("workbox-webpack-plugin");
+const WebpackWPAManifest = require("webpack-pwa-manifest");
 
 const isProduction = process.env.NODE_ENV == "production";
 
@@ -60,7 +61,23 @@ module.exports = () => {
   if (isProduction) {
     config.mode = "production";
 
-    config.plugins.push(new WorkboxWebpackPlugin.GenerateSW());
+    config.plugins.push(new WebpackWPAManifest({
+      publicPath: "/",
+      short_name: "AMS",
+      strat_url: "index.html",
+      name: "AjiMarkupScript",
+      description: "This is a demo of AMS.",
+      crossorigin: 'use-credentials',
+      ios: true,
+      icons: [{
+        src: path.resolve("src/image/logo.png"),
+        sizes: [96, 128, 192, 256, 384, 512],
+      }]
+    }));
+    config.plugins.push(new WorkboxWebpackPlugin.GenerateSW({
+      clientsClaim: true,
+      skipWaiting: true,
+    }));
   } else {
     config.mode = "development";
     config.devtool = "source-map";
