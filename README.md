@@ -40,4 +40,9 @@ AMSは階層構造となっている。
     - Invoker
     - Text
     - Paragraph
-- Variableは、
+- Variableは、変数を表す。
+- Invokerは、最大で1つのWordを含む。
+
+### Paragraph
+Paragraphは、`{}`でくくって定義する。  
+Paragraphに対して呼び出しが行われると、配列のeachのようにParagraphのそれぞれの要素に対して破壊的に呼び出しが行われる。
