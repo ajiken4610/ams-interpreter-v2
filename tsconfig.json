@@ -2,10 +2,14 @@
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": true,
-    "module": "es6",
+    "module": "es2015",
     "target": "es5",
     "allowJs": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "sourceMap":true,
+    "moduleResolution": "node",
+    "removeComments": false,
+    "preserveConstEnums": true
   },
   "files": ["src/index.ts"]
 }
