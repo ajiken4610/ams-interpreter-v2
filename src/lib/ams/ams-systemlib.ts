@@ -1210,11 +1210,33 @@ export interface OnExecutionFinishListener<T> {
 export abstract class ExecutionResult<T> {
     public abstract getResult(): T;
     public abstract getInvokable(): Invokable;
-    public abstract isFinished(): boolean;
-    // ExecutionResultクラスにfinished()を定義して、それが呼ばれたときに呼ばれるように実装
+    private _isFinished = false;
+    public isFinished(): boolean {
+        return this._isFinished;
+    }
+    /**
+     * 処理が完了したときに呼びます。
+     *
+     * @protected
+     * @memberof ExecutionResult
+     */
+    protected finish() {
+        this._isFinished = true;
+        this.onExecutionFinishedListeners.forEach((listener) => {
+            try {
+                listener.onFinish(this);
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+    private onExecutionFinishedListeners: OnExecutionFinishListener<T>[] = [];
+    // ExecutionResultクラスにfinish()を定義して、それが呼ばれたときに呼ばれるように実装
     public addOnExecutionFinishListener(
         listener: OnExecutionFinishListener<T>
-    ): void {}
+    ): void {
+        this.onExecutionFinishedListeners.push(listener);
+    }
 }
 
 export abstract class Executor<T> {
@@ -1245,14 +1267,11 @@ export class PlainTextExecutionResult extends ExecutionResult<string> {
         // TODO 実装
         return Invokable.NULL;
     }
-    public isFinished(): boolean {
-        // TODO 実装
-        return true;
-    }
 }
 
 export class PlainTextExecutor extends Executor<string> {
     public execute(invokable: Invokable): ExecutionResult<string> {
+        // TODO 実装
         return new PlainTextExecutionResult();
     }
 }
