@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo hello",
-    "build": "webpack --mode=production --node-env=production & npm run typedoc",
+    "build": "webpack --mode=production --node-env=production",
     "build:dev": "webpack --mode=development",
     "build:prod": "npm run build",
     "watch": "webpack --watch",
