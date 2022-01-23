@@ -1,7 +1,7 @@
 {
-  "name": "my-webpack-project",
+  "name": "aji-markup-script",
   "version": "1.0.0",
-  "description": "My webpack project",
+  "description": "This is a interpreter of ams.",
   "main": "index.js",
   "scripts": {
     "test": "echo hello",
@@ -29,6 +29,8 @@
     "firebase-tools": "^10.1.0",
     "html-webpack-plugin": "^5.5.0",
     "prettier": "^2.5.1",
+    "pug": "^2.0.4",
+    "pug-loader": "^2.4.0",
     "sass": "^1.45.0",
     "sass-loader": "^12.4.0",
     "style-loader": "^3.3.1",
