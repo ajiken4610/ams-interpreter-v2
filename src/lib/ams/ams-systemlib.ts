@@ -193,21 +193,25 @@ class StringIterator implements Iterator<string> {
  *
  * @class ImportedNamespace
  */
-class ImportedNamespace {
+export class ImportedNamespace {
     /**
      * インポートされた名前空間を保存します。
      *
      * @type {string[]}
      * @memberof ImportedNamespace
      */
-    public importeds: string[] = [];
+    public importeds: string[];
     /**
      * InporttedNamespaceのインスタンスを取得します。
      * @param {boolean} [hasGrammerImport=true]
      * @memberof ImportedNamespace
      */
-    public constructor(hasGrammerImport = true) {
+    public constructor(parent?: ImportedNamespace, hasGrammerImport = true) {
+        this.importeds = parent ? parent.importeds.slice() : [];
         if (hasGrammerImport) this.add("ams.grammer");
+    }
+    public newScope(): ImportedNamespace {
+        return new ImportedNamespace(this, false);
     }
     /**
      * インポートされた名前空間を追加します。
@@ -216,6 +220,9 @@ class ImportedNamespace {
      * @memberof ImportedNamespace
      */
     public add(newNamespace: string) {
+        this.importeds = this.importeds.filter(
+            (importeds) => importeds !== newNamespace
+        );
         this.importeds.push(newNamespace);
     }
     /**
@@ -229,6 +236,19 @@ class ImportedNamespace {
     }
 }
 export class VariableMap<T> {
+    /**
+     * mapから初期化します。
+     *
+     * @static
+     * @template T
+     * @param {{ [key: string]: T }} map
+     * @memberof VariableMap
+     */
+    public static fromMap<T>(map: { [key: string]: T }) {
+        let ret = new VariableMap<T>();
+        ret.map = map;
+        return ret;
+    }
     /**
      * 変数のマップを保存します。
      *
@@ -322,8 +342,8 @@ export class VariableMap<T> {
      * @return {*}  {string}
      * @memberof VariableMap
      */
-    public toeString(): string {
-        return "VariableMap: " + JSON.stringify(this, null, 2);
+    public toString(): string {
+        return this.constructor.name + ": " + JSON.stringify(this, null, 2);
     }
 }
 /**
@@ -333,7 +353,7 @@ export class VariableMap<T> {
  * @extends {VariableMap<T>}
  * @template T
  */
-class NamespacedVariable<T> extends VariableMap<T> {
+export class NamespacedVariable<T> extends VariableMap<T> {
     /**
      * 名前空間がついている変数マップ
      *
@@ -341,7 +361,7 @@ class NamespacedVariable<T> extends VariableMap<T> {
      * @type {{ [key: string]: VariableMap<T> }}
      * @memberof NamespacedVariable
      */
-    protected namespacedVariableMaps: { [key: string]: VariableMap<T> } = {};
+    protected namespacedVariableMaps: { [key: string]: VariableMap<T> };
     /**
      * インポートされた名前空間。
      *
@@ -356,9 +376,15 @@ class NamespacedVariable<T> extends VariableMap<T> {
      * @param {VariableMap<T>} [parent]
      * @memberof NamespacedVariable
      */
-    public constructor(nameSpace?: ImportedNamespace, parent?: VariableMap<T>) {
+    public constructor(
+        nameSpace?: ImportedNamespace,
+        parent?: NamespacedVariable<T>
+    ) {
         super(parent);
         this.imported = nameSpace ?? new ImportedNamespace();
+        this.namespacedVariableMaps = parent
+            ? parent.namespacedVariableMaps
+            : {};
     }
     /**
      * 名前空間がついたVariablesを追加します。
@@ -400,6 +426,32 @@ class NamespacedVariable<T> extends VariableMap<T> {
         return super.get(name) ?? this.getNamespaced(name);
     }
     /**
+     * 名前空間付き変数を含めて変数が存在したらtrue、しなければfalse
+     *
+     * @param {string} name
+     * @return {*}  {boolean}
+     * @memberof NamespacedVariable
+     */
+    public has(name: string): boolean {
+        return this.get(name) ? true : false;
+    }
+    public set(name: string, value: T): void {
+        if (name === "import") {
+            this.addImport(value.toString());
+        } else {
+            super.set(name, value);
+        }
+    }
+    /**
+     * 新しいローカルスコープを返します。
+     *
+     * @return {*}  {NamespacedVariable<T>}
+     * @memberof NamespacedVariable
+     */
+    public newScope(): NamespacedVariable<T> {
+        return new NamespacedVariable<T>(this.imported.newScope(), this);
+    }
+    /**
      * 名前空間をインポートします。インポートされた名前空間は以後名前空間なしで使うことができるようになります。
      *
      * @param {string} namespace
@@ -438,7 +490,7 @@ class NamespacedVariable<T> extends VariableMap<T> {
      */
     public guessNamespace(name: string): string {
         for (let imported of this.imported.iterator()) {
-            if (this.namespacedVariableMaps[imported].has(name)) {
+            if (this.namespacedVariableMaps[imported]?.has(name)) {
                 return imported;
             }
         }
@@ -457,7 +509,7 @@ class NamespacedVariable<T> extends VariableMap<T> {
         if (!namespace && (guessed = this.guessNamespace(name)).length > 0) {
             return this.namespacedVariableMaps[guessed].get(name);
         }
-        return this.namespacedVariableMaps[namespace].get(name);
+        return this.namespacedVariableMaps[namespace]?.get(name);
     }
 }
 /**
@@ -473,6 +525,13 @@ export class ReservedWord {
     static VARIABLE = "\\";
     static INVOKER = ":";
     static SEPARATOR = ";";
+}
+
+export interface HtmlObject {
+    tagName: string;
+    attrs: { [key: string]: string };
+    text?: string;
+    children: HtmlObject[];
 }
 
 /**
@@ -496,8 +555,16 @@ export abstract class Invokable {
         ): Invokable {
             return this;
         }
+        public invokeAsPlainText(variable: VariableMap<Invokable>): string {
+            return "[" + this.TAG + "]";
+        }
+        public invokeAsHtmlObject(
+            variable: VariableMap<Invokable>
+        ): HtmlObject {
+            return { tagName: "span", attrs: {}, children: [], text: "[NULL]" };
+        }
         public getStructureString(indentOffset: string = ""): string {
-            return indentOffset + `==${this.TAG}==`;
+            return "\n" + indentOffset + `==${this.TAG}==`;
         }
         private TAG = "NULL";
     })();
@@ -508,14 +575,14 @@ export abstract class Invokable {
      * @type {Invokable[]}
      * @memberof Invokable
      */
-    private childs: Invokable[] = [];
+    private children: Invokable[] = [];
     /**
      * 構造文字列を取得する際に使用します。
      *
      * @protected
      * @memberof Invokable
      */
-    protected indenter = "|   ";
+    protected indenter = "| ";
 
     /**
      * このインスタンスのgetAtメソッドで返される値を順番に返します。
@@ -525,7 +592,7 @@ export abstract class Invokable {
      */
     public iterator() {
         let outerThis = this;
-        let childs = this.childs;
+        let children = this.children;
         return new (class implements IterableIterator<Invokable> {
             private index = -1;
             public next(): IteratorResult<Invokable> {
@@ -574,16 +641,16 @@ export abstract class Invokable {
      * @memberof Invokable
      */
     public getAt(index: number): Invokable | null {
-        return this.childs[index];
+        return this.children[index];
     }
     /**
      * このインスタンスの子供の要素を置換します。
      *
-     * @param {Invokable[]} childs
+     * @param {Invokable[]} children
      * @memberof Invokable
      */
-    public set(childs: Invokable[]): void {
-        this.childs = childs;
+    public set(children: Invokable[]): void {
+        this.children = children;
     }
     /**
      * このインスタンスの子供の要素の一部を置き換えます。
@@ -593,7 +660,7 @@ export abstract class Invokable {
      * @memberof Invokable
      */
     public setAt(index: number, child: Invokable): void {
-        this.childs[index] = child;
+        this.children[index] = child;
     }
     /**
      * このインスタンスの子供の要素の最後に追加します。
@@ -602,7 +669,7 @@ export abstract class Invokable {
      * @memberof Invokable
      */
     public append(child: Invokable): void {
-        this.childs.push(child);
+        this.children.push(child);
     }
     /**
      * このインスタンスの構造文字列を取得します。
@@ -613,6 +680,35 @@ export abstract class Invokable {
      * @memberof Invokable
      */
     public abstract getStructureString(indentOffset?: string): string;
+    public abstract invokeAsPlainText(
+        variables: VariableMap<Invokable>
+    ): string;
+    public abstract invokeAsHtmlObject(
+        variables: VariableMap<Invokable>
+    ): HtmlObject;
+}
+
+export class StackTrace {
+    private position: (string | number)[];
+    public constructor(position: (string | number)[]) {
+        this.position = position;
+    }
+    public toString(): string {
+        return `\tat (${this.position.join(":")})`;
+    }
+}
+
+export abstract class StopInvokable extends Invokable {
+    protected stackTraces: StackTrace[] = [];
+    public addStacktrace(stackTrace: StackTrace) {
+        this.stackTraces.push(stackTrace);
+    }
+    public getTraceString(): string {
+        let ret: string[] = [];
+        this.stackTraces.forEach((trace) => ret.push(trace.toString()));
+        return ret.join("\n");
+    }
+    public abstract getStopId(): string;
 }
 
 /**
@@ -688,10 +784,15 @@ class Paragraph extends Invokable {
         variables: VariableMap<Invokable>
     ): Invokable {
         let scopedVariables = variables.newScope();
+        let ret = new Paragraph(new StringIterator(""));
         for (let current of this.iterator()) {
-            current.invoke(argument, scopedVariables);
+            let currentResult = current.invoke(argument, scopedVariables);
+            if (currentResult instanceof StopInvokable) {
+                return currentResult;
+            }
+            ret.append(currentResult);
         }
-        return this;
+        return ret;
     }
     /**
      * 子要素のそれぞれに対して実行されます。
@@ -702,10 +803,33 @@ class Paragraph extends Invokable {
      */
     public invokeFinal(variables: VariableMap<Invokable>) {
         let scopedVariables = variables.newScope();
+        let ret = new Paragraph(new StringIterator(""));
         for (let current of this.iterator()) {
-            current.invokeFinal(scopedVariables);
+            let currentResult = current.invokeFinal(scopedVariables);
+            if (currentResult instanceof StopInvokable) {
+                return currentResult;
+            }
+            ret.append(currentResult);
         }
-        return this;
+        return ret;
+    }
+    public append(invokable: Invokable): void {
+        super.append(invokable);
+        this.notLoaded.push(null);
+    }
+    public invokeAsPlainText(variable: VariableMap<Invokable>): string {
+        let ret = "";
+        for (let current of this.invokeFinal(variable).iterator()) {
+            ret += current.invokeAsPlainText(variable);
+        }
+        return ret;
+    }
+    public invokeAsHtmlObject(variable: VariableMap<Invokable>): HtmlObject {
+        let ret: HtmlObject = { tagName: "div", attrs: {}, children: [] };
+        for (let current of this.invokeFinal(variable).iterator()) {
+            ret.children.push(current.invokeAsHtmlObject(variable));
+        }
+        return ret;
     }
     /**
      * インスタンスの構造文字列を返します。
@@ -724,6 +848,7 @@ class Paragraph extends Invokable {
             if (currentText) {
                 result += "\n";
                 result += repeatedIndenter;
+                result += "[not-meoized]: ";
                 result += currentText;
             } else if ((child = this.getAt(i))) {
                 result += child.getStructureString(indentOffset + indenter);
@@ -750,7 +875,7 @@ class Sentence extends Invokable {
      * @protected
      * @memberof Sentence
      */
-    protected indenter = "-   ";
+    protected indenter = "- ";
     /**
      * Sentenceのインスタンスを文字列イテレータをもとに初期化します。
      * @param {StringIterator} iterator
@@ -765,7 +890,7 @@ class Sentence extends Invokable {
         // {...} => Argumentsを引数として呼び出し
         let last = "";
         // console.log("=\t=\t=\t=");
-        while (iterator.hasNext()) {
+        while (iterator.hasNext() || last !== "") {
             let current = iterator.readBeforeCharWithNest(
                 "\\:",
                 "{}",
@@ -792,6 +917,17 @@ class Sentence extends Invokable {
         }
     }
     /**
+     * 子要素をチェーンして呼び出し、チェーン終了後にさらに引数ありでInvokeします。
+     *
+     * @param {Invokable} argument
+     * @param {VariableMap<Invokable>} variables
+     * @return {*}
+     * @memberof Sentence
+     */
+    public invoke(argument: Invokable, variables: VariableMap<Invokable>) {
+        return this.invokeFinal(variables).invoke(argument, variables);
+    }
+    /**
      * 子要素のWordに対してチェーンさせて呼び出し、結果にinvokeFinalして返します。
      *
      * @param {VariableMap<Invokable>} variables
@@ -812,6 +948,12 @@ class Sentence extends Invokable {
             return Invokable.NULL;
         }
     }
+    public invokeAsPlainText(variable: VariableMap<Invokable>): string {
+        return this.invokeFinal(variable).invokeAsPlainText(variable);
+    }
+    public invokeAsHtmlObject(variable: VariableMap<Invokable>): HtmlObject {
+        return this.invokeFinal(variable).invokeAsHtmlObject(variable);
+    }
     /**
      * インスタンスの構造文字列を返します。
      *
@@ -823,7 +965,6 @@ class Sentence extends Invokable {
         let indenter: string = this.indenter;
         let result = "\n" + indentOffset + "Sentence:";
         for (let current of this.iterator()) {
-            // TODO for文に入るとなぜか値が変わるindentOffsetはいかがですか？
             result += current.getStructureString(indentOffset + indenter);
         }
         return result;
@@ -838,7 +979,7 @@ class Sentence extends Invokable {
  * @extends {Invokable}
  */
 abstract class Word extends Invokable {
-    protected indenter = "+   ";
+    protected indenter = "+ ";
 }
 
 /**
@@ -888,6 +1029,17 @@ class Variable extends Word {
             variables.set(this.name, invoked);
             return invoked;
         }
+    }
+    public invokeAsPlainText(variable: VariableMap<Invokable>): string {
+        return "[ref\\" + this.name + "]";
+    }
+    public invokeAsHtmlObject(variable: VariableMap<Invokable>): HtmlObject {
+        return {
+            tagName: "span",
+            attrs: {},
+            children: [],
+            text: "[ref\\" + this.name + "]",
+        };
     }
     /**
      * インスタンスの構造文字列を返します。
@@ -957,6 +1109,22 @@ class Invoker extends Word {
             ? Invokable.NULL
             : this.iterator().next().value.invokeFinal(variables);
     }
+    public invokeAsPlainText(variable: VariableMap<Invokable>): string {
+        let child = this.iterator().next();
+        return `[invoker]:${
+            this.isNull ? "" : child.value.invokeAsPlainText(variable)
+        }`;
+    }
+    public invokeAsHtmlObject(variable: VariableMap<Invokable>): HtmlObject {
+        let child = this.iterator().next();
+        return {
+            tagName: "span",
+            attrs: {},
+            children: this.isNull
+                ? []
+                : [child.value.invokeAsHtmlObject(variable)],
+        };
+    }
     /**
      * インスタンスの構造文字列を取得します。
      *
@@ -969,8 +1137,8 @@ class Invoker extends Word {
         let child = this.iterator().next();
         return `
 ${indentOffset}Invoker::${
-            child.done
-                ? +"\n" + indentOffset + indenter + "None"
+            this.isNull
+                ? "\n" + indentOffset + indenter + "None"
                 : child.value.getStructureString(indentOffset + indenter)
         }`;
     }
@@ -997,6 +1165,12 @@ class Text extends Word {
     public constructor(text: string) {
         super();
         this.text = text;
+    }
+    public invokeAsPlainText(variable: VariableMap<Invokable>): string {
+        return this.text;
+    }
+    public invokeAsHtmlObject(variable: VariableMap<Invokable>): HtmlObject {
+        return { tagName: "span", attrs: {}, children: [], text: this.text };
     }
     /**
      * インスタンスの構造文字列を返します。
@@ -1202,29 +1376,103 @@ export class Parser {
             .build();
     }
 }
-
+/**
+ * 実行が終了した際に呼ばれます。
+ *
+ * @export
+ * @interface OnExecutionFinishListener
+ * @template T
+ */
 export interface OnExecutionFinishListener<T> {
     onFinish(result: ExecutionResult<T>): void;
 }
 
+/**
+ * 実行結果を表します。
+ *
+ * @export
+ * @abstract
+ * @class ExecutionResult
+ * @template T
+ */
 export abstract class ExecutionResult<T> {
-    public abstract getResult(): T;
-    public abstract getInvokable(): Invokable;
-    public abstract isFinished(): boolean;
-    // ExecutionResultクラスにfinished()を定義して、それが呼ばれたときに呼ばれるように実装
+    private result: T | null = null;
+    /**
+     * 実行結果を返します。実行が終了していない場合はnullを返します。
+     *
+     * @abstract
+     * @return {*}  {T}
+     * @memberof ExecutionResult
+     */
+    public getResult(): T | null {
+        return this.result;
+    }
+    private _isFinished = false;
+    public isFinished(): boolean {
+        return this._isFinished;
+    }
+    /**
+     * 処理が完了したときに呼びます。
+     *
+     * @protected
+     * @memberof ExecutionResult
+     */
+    public finish(result: T): void {
+        this.result = result;
+        this._isFinished = true;
+        this.onExecutionFinishedListeners.forEach((listener) => {
+            try {
+                listener.onFinish(this);
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+    /**
+     * 実行が終了した際に呼ばれるリスナーを設定します。
+     *
+     * @private
+     * @type {OnExecutionFinishListener<T>[]}
+     * @memberof ExecutionResult
+     */
+    private onExecutionFinishedListeners: OnExecutionFinishListener<T>[] = [];
+    // ExecutionResultクラスにfinish()を定義して、それが呼ばれたときに呼ばれるように実装
+    /**
+     * 実行終了時のリスナーを追加します。
+     *
+     * @param {OnExecutionFinishListener<T>} listener
+     * @memberof ExecutionResult
+     */
     public addOnExecutionFinishListener(
         listener: OnExecutionFinishListener<T>
-    ): void {}
+    ): void {
+        this.onExecutionFinishedListeners.push(listener);
+    }
 }
 
+/**
+ * AMSを実行する抽象クラスです。
+ *
+ * @export
+ * @abstract
+ * @class Executor
+ * @template T
+ */
 export abstract class Executor<T> {
+    private namespaces: NamespacedVariable<Invokable> =
+        new NamespacedVariable<Invokable>();
     public addNamespace(namespace: {
         [key: string]: { [key: string]: Invokable };
     }): void {
-        // TODO 実装
+        for (const key of Object.keys(namespace)) {
+            this.namespaces.addNamespacedVariableMap(
+                key,
+                VariableMap.fromMap<Invokable>(namespace[key])
+            );
+        }
     }
     public getNamespaces(): NamespacedVariable<Invokable> {
-        return new NamespacedVariable<Invokable>(); // TODO 実装
+        return this.namespaces.newScope();
     }
     abstract execute(
         invokable: Invokable,
@@ -1232,27 +1480,24 @@ export abstract class Executor<T> {
     ): ExecutionResult<T>;
 }
 
-export class Executors {
-    // TODO JavaにあるExecutorsと同じように、Executorを適当にnewして返す。
-}
-
-export class PlainTextExecutionResult extends ExecutionResult<string> {
-    public getResult(): string {
-        // TODO 実装
-        return "";
-    }
-    public getInvokable(): Invokable {
-        // TODO 実装
-        return Invokable.NULL;
-    }
-    public isFinished(): boolean {
-        // TODO 実装
-        return true;
-    }
-}
+export class PlainTextExecutionResult extends ExecutionResult<string> {}
 
 export class PlainTextExecutor extends Executor<string> {
-    public execute(invokable: Invokable): ExecutionResult<string> {
-        return new PlainTextExecutionResult();
+    public execute(invokable: Invokable): PlainTextExecutionResult {
+        let ret = new PlainTextExecutionResult();
+        let result = invokable.invokeAsPlainText(this.getNamespaces());
+        ret.finish(result);
+        return ret;
+    }
+}
+
+export class HtmlObjectExecutionResult extends ExecutionResult<HtmlObject> {}
+
+export class HtmlObjectExecutor extends Executor<HtmlObject> {
+    execute(invokable: Invokable): HtmlObjectExecutionResult {
+        let ret = new HtmlObjectExecutionResult();
+        let result = invokable.invokeAsHtmlObject(this.getNamespaces());
+        ret.finish(result);
+        return ret;
     }
 }
