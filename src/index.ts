@@ -1,3 +1,19 @@
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker
+            .register("service-worker.js")
+            .then((registration) => {
+                console.log("Service Worker registered: ", registration);
+            })
+            .catch((registrationError) => {
+                console.error(
+                    "Service Worker registration failed: ",
+                    registrationError
+                );
+            });
+    });
+}
+
 const { initializeApp } = require("firebase/app");
 const {
     initializeAppCheck,
@@ -29,35 +45,97 @@ window.addEventListener("load", (event) => {
 });
 
 import * as AMS from "./lib/ams/ams";
+// (() => {
+//     console.log("====absamsobject====");
+//     let parsed1 = AMS.Parser.parse(
+//         // `
+//         // AAA:BBB;
+//         // CCC{};
+//         // \\DDD:{XXX{PPP}}aa;
+//         // \\DDD:EEE{
+//         //     AAA:BBB{
+//         //         XXX{
+//         //             YYY:ZZZ
+//         //         };PPP
+//         //     }
+//         // }{
+//         //     AAA
+//         // }EEE{
+//         //     WWW
+//         // }:{
+//         //     AAA
+//         // }/FFF:AAA
+//         // `
+//         // `\\AA\\BB:CC`
+//         //   `\\abc{hello};;`
+//         //`AA`
+//         `aa:`
+//     );
+//     // for (let invokable of parsed1.iterator()) {
+//     //     console.log(invokable.toString());
+//     // }
+//     console.log(parsed1);
+//     let executor = new AMS.PlainTextExecutor();
+//     let result = executor.execute(parsed1);
+//     console.log(
+//         parsed1
+//             .invokeFinal(new AMS.NamespacedVariable<AMS.Invokable>())
+//             .getStructureString()
+//     );
+//     console.log(parsed1.getStructureString());
+// })();
 
-console.log("====absamsobject====");
-let parsed1 = AMS.Parser.parse(
-    // `
-    // AAA:BBB;
-    // CCC{};
-    // \\DDD:{XXX{PPP}}aa;
-    // \\DDD:EEE{
-    //     AAA:BBB{
-    //         XXX{
-    //             YYY:ZZZ
-    //         };PPP
-    //     }
-    // }{
-    //     AAA
-    // }EEE{
-    //     WWW
-    // }:{
-    //     AAA
-    // }/FFF:AAA
-    // `
-    // `\\AA\\BB:CC`
-    //   `\\abc{hello};;`
-    `AA:a{BB}`
-);
-// for (let invokable of parsed1.iterator()) {
-//     console.log(invokable.toString());
-// }
-console.log(parsed1);
-let executor = new AMS.PlainTextExecutor();
-let result = executor.execute(parsed1);
-console.log(parsed1.getStructureString());
+// console.log("namespacedVariableのテスト");
+
+// let variable = new AMS.NamespacedVariable<string>();
+// let grammer = new AMS.VariableMap<string>();
+// grammer.set("for", "for-statement");
+// let fakeGrammer = new AMS.VariableMap<string>();
+// fakeGrammer.set("for", "fake-for-statement");
+// variable.addNamespacedVariableMap("ams.grammer", grammer);
+// variable.addNamespacedVariableMap("ams.fake", fakeGrammer);
+// variable.addImport("ams.fake");
+// //variable.addImport("ams.grammer");
+// // variable.set("for", "local-variable-name-for");
+// console.log(variable.toString());
+// console.log(variable.get("for"));
+
+// console.log("====AMS=PLAIN=TEXT=EXECUTION====");
+
+// (() => {
+//     let parsed = AMS.Parser.parse(
+//         `
+//         \\a:hello;
+//         \\b:world;
+
+//         {
+//             \\a;
+//             \\b
+//         }:
+
+//         ` //
+//         // `こんにちは初音ミクだよ音域テストを始めるよ高音厨のお前らならば余裕で歌えるね`
+//     );
+//     let executor = new AMS.PlainTextExecutor();
+//     let result = executor.execute(parsed);
+//     console.log(result.getResult());
+//     console.log(parsed.getStructureString());
+// })();
+
+console.log("====AMS=HTML=OBJECT=EXECUTION====");
+(() => {
+    let parsed = AMS.Parser.parse(
+        `
+        \\a:hello;
+        \\b:world;
+        {
+            \\a;
+            \\b
+        }:
+        `
+    );
+    let executor = new AMS.HtmlObjectExecutor();
+    let result = executor.execute(parsed);
+    console.log(result.getResult());
+    console.log(JSON.stringify(result.getResult(), null, 2));
+})();

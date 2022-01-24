@@ -21,7 +21,7 @@ const config = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: "index.html",
+      template: "index.pug",
       inject: "head",
       scriptLoading: "blocking",
     }),
@@ -50,6 +50,10 @@ const config = {
 
       // Add your rules for custom modules here
       // Learn more about loaders from https://webpack.js.org/loaders/
+      {
+        test: /\.pug$/i,
+        use: ["pug-loader"]
+      }
     ],
   },
   resolve: {
@@ -64,7 +68,7 @@ module.exports = () => {
     config.plugins.push(new WebpackWPAManifest({
       publicPath: "/",
       short_name: "AMS",
-      strat_url: "index.html",
+      start_url: "index.html",
       name: "AjiMarkupScript",
       description: "This is a demo of AMS.",
       crossorigin: 'use-credentials',
