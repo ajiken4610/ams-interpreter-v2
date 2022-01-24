@@ -100,20 +100,42 @@ import * as AMS from "./lib/ams/ams";
 // console.log(variable.toString());
 // console.log(variable.get("for"));
 
-console.log("====AMS=PLAIN=TEXT=EXECUTION====");
+// console.log("====AMS=PLAIN=TEXT=EXECUTION====");
 
+// (() => {
+//     let parsed = AMS.Parser.parse(
+//         `
+//         \\a:hello;
+//         \\b:world;
+
+//         {
+//             \\a;
+//             \\b
+//         }:
+
+//         ` //
+//         // `こんにちは初音ミクだよ音域テストを始めるよ高音厨のお前らならば余裕で歌えるね`
+//     );
+//     let executor = new AMS.PlainTextExecutor();
+//     let result = executor.execute(parsed);
+//     console.log(result.getResult());
+//     console.log(parsed.getStructureString());
+// })();
+
+console.log("====AMS=HTML=OBJECT=EXECUTION====");
 (() => {
     let parsed = AMS.Parser.parse(
         `
-{
-    \\abc:hello;
-    \\abc:
-};
-\\abc:
-` //
+        \\a:hello;
+        \\b:world;
+        {
+            \\a;
+            \\b
+        }:
+        `
     );
-
-    let executor = new AMS.PlainTextExecutor();
+    let executor = new AMS.HtmlObjectExecutor();
     let result = executor.execute(parsed);
     console.log(result.getResult());
+    console.log(JSON.stringify(result.getResult(), null, 2));
 })();
